@@ -1,0 +1,407 @@
+{
+  "name": "Is_ar",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://77.67.89.207:8080/report/csv",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/csv; charset=utf-8"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Авторизация').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1872,
+        304
+      ],
+      "id": "26aed5e3-3b2e-4e14-99fa-9a340f8dcb3c",
+      "name": "Отправка в Report API"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -144
+      ],
+      "id": "154a986d-8fc4-49ee-b67c-898781fe74b1",
+      "name": "Запуск"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://77.67.89.207:8080/auth/token",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $env.STUDENT_USERNAME, password: $env.STUDENT_PASSWORD }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        -144
+      ],
+      "id": "d1961de6-c599-4920-9ef3-672ddf6d2e74",
+      "name": "Авторизация"
+    },
+    {
+      "parameters": {
+        "url": "http://77.67.89.207:8080/cms/spares",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "page",
+                    "value": "={{ $pageCount }}"
+                  },
+                  {
+                    "name": "size",
+                    "value": "10"
+                  }
+                ]
+              },
+              "limitPagesFetched": true,
+              "maxRequests": 1000,
+              "requestInterval": 100
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -144
+      ],
+      "id": "44863139-d5b9-4f1c-973c-c98d88155dd8",
+      "name": "CMS",
+      "executeOnce": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "uvxfmhA5CPYALE7L",
+          "name": "Unnamed credential 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, description, type, status, price, quantity, updated_at, is_deleted \nFROM spares_history;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        96
+      ],
+      "id": "bcab9f6c-2c6b-4b9e-b25e-5cc1d8f3b2e8",
+      "name": "Чтение БД",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WjEIsEWypATWKPvc",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const remoteData = $('CMS').all().map(i => i.json).filter(i => i.spareCode);\nconst localData = $('Чтение БД').all().map(i => i.json).filter(i => i.id);\n\nconst remoteLookup = new Map(remoteData.map(item => [String(item.spareCode), item]));\nconst localLookup = new Map(localData.map(item => [String(item.id), item]));\n\nconst normalize = val => (val === null || val === undefined ? '' : String(val));\n\nfunction isModified(remote, local) {\n  return (\n    normalize(remote.spareName) !== normalize(local.name) ||\n    normalize(remote.spareDescription) !== normalize(local.description) ||\n    normalize(remote.spareType) !== normalize(local.type) ||\n    normalize(remote.spareStatus) !== normalize(local.status) ||\n    Number(remote.price) !== Number(local.price) ||\n    Number(remote.quantity) !== Number(local.quantity) ||\n    normalize(remote.updatedAt) !== normalize(local.updated_at)\n  );\n}\n\nlet insert = [];\nlet update = [];\nlet deleteList = [];\n\nfor (let [code, remoteObj] of remoteLookup) {\n  let localObj = localLookup.get(code);\n  if (!localObj) {\n    insert.push(remoteObj);\n  } else if (localObj.is_deleted || isModified(remoteObj, localObj)) {\n    update.push(remoteObj);\n  }\n}\n\nfor (let [code, localObj] of localLookup) {\n  if (!remoteLookup.has(code) && !localObj.is_deleted) {\n    deleteList.push(code);\n  }\n}\n\nreturn [{\n  json: {\n    remote_total: remoteLookup.size,\n    local_total: localLookup.size,\n    insert: insert,\n    update: update,\n    delete: deleteList\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        96
+      ],
+      "id": "e0e188a3-82fe-458c-ae13-77a22b3fb1c4",
+      "name": "Синхронизация CMS и БД"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE spares_history AS target SET \n  name = payload.\"spareName\", \n  description = payload.\"spareDescription\", \n  type = payload.\"spareType\", \n  status = payload.\"spareStatus\", \n  price = payload.\"price\", \n  quantity = payload.\"quantity\", \n  updated_at = payload.\"updatedAt\", \n  last_synced_at = NOW(), \n  is_deleted = FALSE, \n  deleted_at = NULL \nFROM jsonb_to_recordset($1::jsonb) AS payload(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nWHERE target.id = payload.\"spareCode\";",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.update) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1056,
+        96
+      ],
+      "id": "db9b0ffa-87be-49dd-a550-02ee2d431269",
+      "name": "Обновление записей",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WjEIsEWypATWKPvc",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO spares_history (id, name, description, type, status, price, quantity, updated_at, last_synced_at, is_deleted) \nSELECT src.\"spareCode\", src.\"spareName\", src.\"spareDescription\", src.\"spareType\", src.\"spareStatus\", src.\"price\", src.\"quantity\", src.\"updatedAt\", NOW(), FALSE \nFROM jsonb_to_recordset($1::jsonb) AS src(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nON CONFLICT (id) DO NOTHING;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.insert) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        864,
+        96
+      ],
+      "id": "2abe8602-fb81-4d71-8fb7-8d8d4f416a19",
+      "name": "Добавление новых записей",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WjEIsEWypATWKPvc",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE spares_history SET is_deleted = TRUE, deleted_at = NOW() \nWHERE is_deleted = FALSE AND id IN (SELECT jsonb_array_elements_text($1::jsonb));",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.delete) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1232,
+        96
+      ],
+      "id": "c5774a9b-1c09-4a49-aa1a-89361a804f2c",
+      "name": "Пометка удаленных записей",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "WjEIsEWypATWKPvc",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  id AS \"spareCode\", \n  name AS \"spareName\", \n  COALESCE(description, '') AS \"spareDescription\", \n  COALESCE(type, '') AS \"spareType\", \n  COALESCE(status, '') AS \"spareStatus\", \n  trim_scale(price)::text AS \"price\", \n  quantity AS \"quantity\", \n  COALESCE(updated_at, '') AS \"updatedAt\" \nFROM spares_history \nWHERE is_deleted = FALSE \nORDER BY id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1440,
+        96
+      ],
+      "id": "8c43e16d-4239-449b-bc92-aee4cc4f8949",
+      "name": "Выборка активных записей",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "WjEIsEWypATWKPvc",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const COLUMNS = ['spareCode', 'spareName', 'spareDescription', 'spareType', 'spareStatus', 'price', 'quantity', 'updatedAt'];\n\nconst formatValue = val => {\n  const strVal = val === null || val === undefined ? '' : String(val);\n  return /[;\"\\r\\n]/.test(strVal) ? '\"' + strVal.replace(/\"/g, '\"\"') + '\"' : strVal;\n};\n\nconst dataset = $input.all().map(el => el.json).filter(row => row.spareCode);\nconst csvOutput = dataset.map(row => COLUMNS.map(col => formatValue(row[col])).join(';')).join('\\n');\n\nreturn [{ json: { record_count: dataset.length, csv: csvOutput } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        304
+      ],
+      "id": "22bec2d6-2067-4298-86f0-61c6eafcc6c7",
+      "name": "Форматирование в CSV"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "csv",
+        "options": {
+          "addBOM": false,
+          "encoding": "utf8",
+          "fileName": "report_spares.csv"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        304
+      ],
+      "id": "d3f8fcd0-42ec-402c-9c26-7ee5b8bc210b",
+      "name": "Конвертация в файл CSV"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Запуск": {
+      "main": [
+        [
+          {
+            "node": "Авторизация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Авторизация": {
+      "main": [
+        [
+          {
+            "node": "CMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CMS": {
+      "main": [
+        [
+          {
+            "node": "Чтение БД",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Чтение БД": {
+      "main": [
+        [
+          {
+            "node": "Синхронизация CMS и БД",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Синхронизация CMS и БД": {
+      "main": [
+        [
+          {
+            "node": "Добавление новых записей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Обновление записей": {
+      "main": [
+        [
+          {
+            "node": "Пометка удаленных записей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Добавление новых записей": {
+      "main": [
+        [
+          {
+            "node": "Обновление записей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Пометка удаленных записей": {
+      "main": [
+        [
+          {
+            "node": "Выборка активных записей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Выборка активных записей": {
+      "main": [
+        [
+          {
+            "node": "Форматирование в CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Форматирование в CSV": {
+      "main": [
+        [
+          {
+            "node": "Конвертация в файл CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Конвертация в файл CSV": {
+      "main": [
+        [
+          {
+            "node": "Отправка в Report API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d6a01d3b-4b78-4d2d-86cc-001f2ea1e105",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d7ec3ef5ea116e37121b3ac15c2948cfbe81ef6dde9f16f49f59664b42f95e99"
+  },
+  "nodeGroups": [],
+  "id": "sGUMZjPN19oQQ2O9",
+  "tags": []
+}
