@@ -26,10 +26,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1872,
-        304
+        1472,
+        480
       ],
-      "id": "26aed5e3-3b2e-4e14-99fa-9a340f8dcb3c",
+      "id": "0b7636fd-6f45-46d6-8141-badab9909dc2",
       "name": "Отправка в Report API"
     },
     {
@@ -38,9 +38,9 @@
       "typeVersion": 1,
       "position": [
         0,
-        -144
+        0
       ],
-      "id": "154a986d-8fc4-49ee-b67c-898781fe74b1",
+      "id": "503668a6-e83e-4e19-9724-e57d9f7487de",
       "name": "Запуск"
     },
     {
@@ -49,16 +49,16 @@
         "url": "http://77.67.89.207:8080/auth/token",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ username: $env.STUDENT_USERNAME, password: $env.STUDENT_PASSWORD }) }}",
+        "jsonBody": "={{ JSON.stringify({ username: \"student15\", password: \"r{t7.hK..r0D\" }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
         224,
-        -144
+        0
       ],
-      "id": "d1961de6-c599-4920-9ef3-672ddf6d2e74",
+      "id": "309127e2-875d-40c8-9f6e-6127faf0935a",
       "name": "Авторизация"
     },
     {
@@ -92,15 +92,15 @@
       "typeVersion": 4.5,
       "position": [
         448,
-        -144
+        0
       ],
-      "id": "44863139-d5b9-4f1c-973c-c98d88155dd8",
+      "id": "a7b3f3cf-c78b-4f63-beb1-8af5dc470dc1",
       "name": "CMS",
       "executeOnce": true,
       "credentials": {
         "httpBasicAuth": {
-          "id": "uvxfmhA5CPYALE7L",
-          "name": "Unnamed credential 2"
+          "id": "ThchHm2LC49FvNVb",
+          "name": "Unnamed credential"
         }
       }
     },
@@ -114,16 +114,16 @@
       "typeVersion": 2.7,
       "position": [
         448,
-        96
+        240
       ],
-      "id": "bcab9f6c-2c6b-4b9e-b25e-5cc1d8f3b2e8",
+      "id": "758a5395-acbf-4b36-afa5-24e81eec144a",
       "name": "Чтение БД",
       "executeOnce": true,
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
-          "id": "WjEIsEWypATWKPvc",
-          "name": "Postgres account 2"
+          "id": "eZVHHR72KvFKldfy",
+          "name": "Postgres account"
         }
       }
     },
@@ -135,82 +135,10 @@
       "typeVersion": 2,
       "position": [
         656,
-        96
+        240
       ],
-      "id": "e0e188a3-82fe-458c-ae13-77a22b3fb1c4",
+      "id": "c1da4d05-e548-42ad-87eb-640acf95c31d",
       "name": "Синхронизация CMS и БД"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE spares_history AS target SET \n  name = payload.\"spareName\", \n  description = payload.\"spareDescription\", \n  type = payload.\"spareType\", \n  status = payload.\"spareStatus\", \n  price = payload.\"price\", \n  quantity = payload.\"quantity\", \n  updated_at = payload.\"updatedAt\", \n  last_synced_at = NOW(), \n  is_deleted = FALSE, \n  deleted_at = NULL \nFROM jsonb_to_recordset($1::jsonb) AS payload(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nWHERE target.id = payload.\"spareCode\";",
-        "options": {
-          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.update) }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        1056,
-        96
-      ],
-      "id": "db9b0ffa-87be-49dd-a550-02ee2d431269",
-      "name": "Обновление записей",
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "WjEIsEWypATWKPvc",
-          "name": "Postgres account 2"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO spares_history (id, name, description, type, status, price, quantity, updated_at, last_synced_at, is_deleted) \nSELECT src.\"spareCode\", src.\"spareName\", src.\"spareDescription\", src.\"spareType\", src.\"spareStatus\", src.\"price\", src.\"quantity\", src.\"updatedAt\", NOW(), FALSE \nFROM jsonb_to_recordset($1::jsonb) AS src(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nON CONFLICT (id) DO NOTHING;",
-        "options": {
-          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.insert) }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        864,
-        96
-      ],
-      "id": "2abe8602-fb81-4d71-8fb7-8d8d4f416a19",
-      "name": "Добавление новых записей",
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "WjEIsEWypATWKPvc",
-          "name": "Postgres account 2"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE spares_history SET is_deleted = TRUE, deleted_at = NOW() \nWHERE is_deleted = FALSE AND id IN (SELECT jsonb_array_elements_text($1::jsonb));",
-        "options": {
-          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.delete) }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        1232,
-        96
-      ],
-      "id": "c5774a9b-1c09-4a49-aa1a-89361a804f2c",
-      "name": "Пометка удаленных записей",
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "WjEIsEWypATWKPvc",
-          "name": "Postgres account 2"
-        }
-      }
     },
     {
       "parameters": {
@@ -221,16 +149,16 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1440,
-        96
+        1072,
+        240
       ],
-      "id": "8c43e16d-4239-449b-bc92-aee4cc4f8949",
+      "id": "95639937-5b53-46bd-b931-52e4e8864034",
       "name": "Выборка активных записей",
       "executeOnce": true,
       "credentials": {
         "postgres": {
-          "id": "WjEIsEWypATWKPvc",
-          "name": "Postgres account 2"
+          "id": "eZVHHR72KvFKldfy",
+          "name": "Postgres account"
         }
       }
     },
@@ -241,10 +169,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
-        304
+        1072,
+        480
       ],
-      "id": "22bec2d6-2067-4298-86f0-61c6eafcc6c7",
+      "id": "49daaa8c-dfd8-4fd6-aefd-16d9bf6b2ec0",
       "name": "Форматирование в CSV"
     },
     {
@@ -260,11 +188,35 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        1664,
-        304
+        1280,
+        480
       ],
-      "id": "d3f8fcd0-42ec-402c-9c26-7ee5b8bc210b",
+      "id": "1dc0c5d6-ade0-491c-9e55-ad77fc3fa544",
       "name": "Конвертация в файл CSV"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO spares_history (id, name, description, type, status, price, quantity, updated_at, last_synced_at, is_deleted) \nSELECT src.\"spareCode\", src.\"spareName\", src.\"spareDescription\", src.\"spareType\", src.\"spareStatus\", src.\"price\", src.\"quantity\", src.\"updatedAt\", NOW(), FALSE \nFROM jsonb_to_recordset($1::jsonb -> 'insert') AS src(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nON CONFLICT (id) DO NOTHING;\n\nUPDATE spares_history AS target \nSET \n  name = payload.\"spareName\", \n  description = payload.\"spareDescription\", \n  type = payload.\"spareType\", \n  status = payload.\"spareStatus\", \n  price = payload.\"price\", \n  quantity = payload.\"quantity\", \n  updated_at = payload.\"updatedAt\", \n  last_synced_at = NOW(), \n  is_deleted = FALSE, \n  deleted_at = NULL \nFROM jsonb_to_recordset($1::jsonb -> 'update') AS payload(\"spareCode\" text, \"spareName\" text, \"spareDescription\" text, \"spareType\" text, \"spareStatus\" text, \"price\" numeric, \"quantity\" integer, \"updatedAt\" text) \nWHERE target.id = payload.\"spareCode\";\n\nUPDATE spares_history \nSET is_deleted = TRUE, deleted_at = NOW() \nWHERE is_deleted = FALSE AND id IN (SELECT jsonb_array_elements_text($1::jsonb -> 'delete'));",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Синхронизация CMS и БД').first().json.insert) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        864,
+        240
+      ],
+      "id": "36a2a139-cc7e-40b3-af19-bf596b34ad33",
+      "name": "Актуализация БД",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "eZVHHR72KvFKldfy",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -317,40 +269,7 @@
       "main": [
         [
           {
-            "node": "Добавление новых записей",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Обновление записей": {
-      "main": [
-        [
-          {
-            "node": "Пометка удаленных записей",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Добавление новых записей": {
-      "main": [
-        [
-          {
-            "node": "Обновление записей",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Пометка удаленных записей": {
-      "main": [
-        [
-          {
-            "node": "Выборка активных записей",
+            "node": "Актуализация БД",
             "type": "main",
             "index": 0
           }
@@ -389,19 +308,31 @@
           }
         ]
       ]
+    },
+    "Актуализация БД": {
+      "main": [
+        [
+          {
+            "node": "Выборка активных записей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "availableInMCP": true
   },
-  "versionId": "d6a01d3b-4b78-4d2d-86cc-001f2ea1e105",
+  "versionId": "a13c5813-f723-4650-a16b-0d217236da87",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "d7ec3ef5ea116e37121b3ac15c2948cfbe81ef6dde9f16f49f59664b42f95e99"
   },
   "nodeGroups": [],
-  "id": "sGUMZjPN19oQQ2O9",
+  "id": "qmubjtXGLc6Ss07N",
   "tags": []
 }
